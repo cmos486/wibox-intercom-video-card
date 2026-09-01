@@ -10,7 +10,7 @@ Custom Lovelace card with **two-way audio + video** for a Fermax WiBox intercom 
 - 🔒 Signalling proxied through Home Assistant — the go2rtc API (1984) is never exposed
 - 🌍 Works remotely over your existing HTTPS reverse proxy, no extra ports
 - 🔓 Open door button (`button.press`, `lock.unlock` or any custom service)
-- 🔇 Half-duplex mode: mutes incoming audio while you talk, killing speaker echo
+- 🔊 Full duplex: you keep hearing the door while you talk, with optional half-duplex if you get feedback
 - 🛠 Visual editor
 - 🗣 Multi-language UI (Spanish, English, Catalan) with auto-detection
 

@@ -102,7 +102,17 @@ ok('go2rtc API port is never referenced', !/:1984/.test(source.replace(/^ \*.*$/
 ok('sends a go2rtc offer', source.includes("type: 'webrtc/offer'"));
 ok('handles a go2rtc answer', source.includes("msg.type === 'webrtc/answer'"));
 
-// ---------- 5. Config helpers ----------
+// ---------- 5. Full duplex is the default ----------
+
+console.log('\nduplex default:');
+ok('card defaults mute_while_talking to false',
+  source.includes('this._config = { mute_while_talking: false, ...config };'),
+  'incoming audio must keep playing while the talk button is held');
+ok('editor switch agrees with that default',
+  source.includes('toggle.checked = value === true;'),
+  'a `value !== false` test would show the switch on while the card behaves as off');
+
+// ---------- 6. Config helpers ----------
 
 console.log('\nresolveOpenDoorAction:');
 const door = (c) => run('resolveOpenDoorAction(' + JSON.stringify(c) + ')');

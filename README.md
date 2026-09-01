@@ -25,7 +25,7 @@ open_door_entity: button.wifi_intercom_entrada_open_door
 - 🔒 Signalling proxied through Home Assistant — the go2rtc API (1984) is never exposed
 - 🌍 Works remotely over your existing HTTPS reverse proxy, no extra ports
 - 🔓 Open door button (`button.press`, `lock.unlock` or any custom service)
-- 🔇 Half-duplex mode: mutes incoming audio while you talk, killing speaker echo
+- 🔊 Full duplex: you keep hearing the door while you talk, with optional half-duplex if you get feedback
 - 🛠 Visual editor
 - 🗣 Multi-language UI (Spanish, English, Catalan) with auto-detection
 
@@ -139,7 +139,7 @@ Forward **8555 UDP and TCP** on your router to the Home Assistant host. This is 
 | `server` | string | — | Override the go2rtc URL used by the proxy. Rarely needed. |
 | `open_door_entity` | string | — | Shows the "Open door" button. The service is derived from the domain: `button`/`input_button` → `press`, `lock` → `unlock`, `switch`/`script`/`scene` → `turn_on`. |
 | `open_door_action` | object | — | Full control instead of `open_door_entity`: `service`, `entity_id`, `data`. |
-| `mute_while_talking` | bool | `true` | Half-duplex. Mutes the WiBox audio while you hold the talk button, so the phone speaker cannot feed back into the phone mic. |
+| `mute_while_talking` | bool | `false` | Half-duplex. Mutes the WiBox audio while you hold the talk button. Off by default — see [Duplex](#-duplex). |
 | `ice_servers` | list | `['stun:stun.cloudflare.com:3478']` | STUN servers for the browser side. No TURN needed. Set to `[]` to disable. |
 | `video_max_height` | string | — | Caps the video height, e.g. `300px`. Useful on small screens. |
 | `language` | string | auto | `es`, `en` or `ca`. Defaults to the Home Assistant language. |
@@ -161,7 +161,7 @@ Full:
 type: custom:wibox-intercom-video-card
 stream: wibox
 open_door_entity: button.wifi_intercom_entrada_open_door
-mute_while_talking: true
+mute_while_talking: false
 video_max_height: 300px
 language: es
 ```
@@ -178,6 +178,22 @@ open_door_action:
     variables:
       duration: 5
 ```
+
+## 🔊 Duplex
+
+Push-to-talk gates your **microphone**: it is open only while the button is held. That is not configurable — it is what makes mobile browsers hand over the microphone in the first place, and it stops the card from broadcasting your living room to the street.
+
+What the incoming audio does meanwhile is configurable, and the card is **full duplex by default**: you keep hearing whoever is at the door even while you are talking.
+
+```yaml
+mute_while_talking: true   # half-duplex, only if you need it
+```
+
+Half-duplex exists for one failure mode: on speakerphone at high volume, the WiBox audio comes out of the phone speaker, back in through the phone microphone, out of the WiBox speaker, into the WiBox microphone, and howls. The card already requests the microphone with `echoCancellation: true`, which handles the phone-speaker-to-phone-microphone leg that closes that loop, so in practice it rarely triggers. With headphones or the phone at your ear it cannot happen at all.
+
+The cost of turning it on is real, though: an intercom is not a walkie-talkie, and the person at the door has no idea you are in half-duplex. If they speak while you hold the button, you miss it. So it is off unless you actually hear feedback.
+
+Muting is playback-only either way. The WiBox stream keeps arriving throughout — nothing is renegotiated and nothing has to resync when you release the button.
 
 ## 🕹 Usage
 
@@ -247,9 +263,9 @@ The signalling proxy rejected the socket. Check that the AlexxIT/WebRTC integrat
 
 Closing the signalling WebSocket tears the session down on the go2rtc side, so the card holds it open for the whole call and pings it every 30 s. If calls still die on a fixed interval, raise the idle read timeout on your reverse proxy (`proxy_read_timeout` on nginx).
 
-### 🔊 Echo
+### 🔊 Feedback howl on speakerphone
 
-Leave `mute_while_talking: true`. The browser's echo cancellation only handles the local loop; half-duplex handles the rest.
+Set `mute_while_talking: true`. See [Duplex](#-duplex) for what that trades away — it is off by default for a reason.
 
 ## 🧪 Development
 

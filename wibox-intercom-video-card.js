@@ -30,7 +30,7 @@
  *     service: button.press
  *     entity_id: button.xxx
  *     data: {...}
- *   mute_while_talking: true            # half-duplex, kills speaker echo
+ *   mute_while_talking: false           # true = half-duplex, for speakerphone echo
  *   ice_servers: ['stun:stun.cloudflare.com:3478']
  *   video_max_height: 300px
  *   language: es|en|ca
@@ -92,7 +92,7 @@ const TRANSLATIONS = {
     editor_door_label: 'Entidad para abrir puerta (opcional)',
     editor_door_help: 'Aparece el boton "Abrir puerta". Para un button.xxx llama a button.press.',
     editor_mute_label: 'Silenciar entrada mientras hablas (medio duplex)',
-    editor_mute_help: 'Recomendado: evita que el altavoz del movil se realimente en el microfono.',
+    editor_mute_help: 'Desactivado por defecto: asi oyes a la otra persona aunque estes pulsando. Activalo solo si acoplas en manos libres.',
     editor_advanced_toggle: 'Avanzado: accion personalizada para abrir puerta',
     editor_advanced_help: 'Configura cualquier llamada de servicio para el boton "Abrir puerta". Dejarlo vacio deshabilita el boton.',
     editor_service_label: 'Servicio (ej. button.press, script.turn_on)',
@@ -141,7 +141,7 @@ const TRANSLATIONS = {
     editor_door_label: 'Open door entity (optional)',
     editor_door_help: 'Shows the "Open door" button. For a button.xxx it calls button.press.',
     editor_mute_label: 'Mute incoming audio while talking (half-duplex)',
-    editor_mute_help: 'Recommended: stops the phone speaker from feeding back into the microphone.',
+    editor_mute_help: 'Off by default, so you still hear the other person while holding the button. Turn it on only if you get feedback on speakerphone.',
     editor_advanced_toggle: 'Advanced: custom open-door action',
     editor_advanced_help: 'Configure any service call for the "Open door" button. Leaving it empty disables the button.',
     editor_service_label: 'Service (e.g. button.press, script.turn_on)',
@@ -190,7 +190,7 @@ const TRANSLATIONS = {
     editor_door_label: 'Entitat per obrir la porta (opcional)',
     editor_door_help: 'Apareix el boto "Obrir porta". Per a un button.xxx crida button.press.',
     editor_mute_label: 'Silenciar entrada mentre parles (mig duplex)',
-    editor_mute_help: 'Recomanat: evita que l\'altaveu del mobil es realimenti al microfon.',
+    editor_mute_help: 'Desactivat per defecte: aixi sents l\'altra persona encara que estiguis prement. Activa\'l nomes si acobles en mans lliures.',
     editor_advanced_toggle: 'Avancat: accio personalitzada per obrir la porta',
     editor_advanced_help: 'Configura qualsevol crida de servei per al boto "Obrir porta". Deixar-ho buit desactiva el boto.',
     editor_service_label: 'Servei (p.ex. button.press, script.turn_on)',
@@ -318,7 +318,7 @@ class WiboxIntercomVideoCard extends HTMLElement {
         `using "${config.stream || config.url}" and ignoring ${config.entity}`
       );
     }
-    this._config = { mute_while_talking: true, ...config };
+    this._config = { mute_while_talking: false, ...config };
     this._refreshLang();
     this._render();
   }
@@ -758,8 +758,10 @@ class WiboxIntercomVideoCard extends HTMLElement {
       pttBtn.textContent = talking ? T('ptt_talking') : T('ptt_button');
     }
 
-    // Half-duplex: mute the WiBox audio while talking so the phone speaker
-    // does not feed back into the phone mic.
+    // Opt-in half-duplex. Off by default: the browser's own echo cancellation
+    // already covers the phone speaker -> phone mic leg that closes the
+    // feedback loop, and muting means missing whoever is at the door if they
+    // talk while the button is held.
     if (this._config.mute_while_talking) {
       const video = this.shadowRoot.getElementById('video');
       if (video) video.muted = talking;
@@ -958,7 +960,7 @@ class WiboxIntercomVideoCardEditor extends HTMLElement {
     text.style.cssText = 'font-size:14px; color:var(--primary-text-color);';
     text.textContent = label;
     const toggle = document.createElement('ha-switch');
-    toggle.checked = value !== false;
+    toggle.checked = value === true;
     toggle.addEventListener('change', (e) => onChange(e.target.checked));
     row.appendChild(text);
     row.appendChild(toggle);
