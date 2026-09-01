@@ -22,7 +22,8 @@
  * Schema:
  *   type: custom:wibox-intercom-video-card
  *   stream: wibox                       # go2rtc stream name (from go2rtc.yaml)
- *   entity: camera.xxx                  # alternative to `stream`
+ *   url: rtsp://user:pass@host/live     # or any source go2rtc can open
+ *   entity: camera.xxx                  # or a camera entity
  *   server: http://localhost:1984/      # optional go2rtc URL override
  *   open_door_entity: button.xxx        # optional, simple "open door" mode
  *   open_door_action:                   # optional, advanced mode
@@ -75,6 +76,8 @@ const TRANSLATIONS = {
     error_service: 'service mal formado',
     error_prefix: 'Error:',
     error_ha: 'Error de HA:',
+    hint_stream_not_found:
+      "el go2rtc que responde no tiene ese stream. Comprueba el nombre en go2rtc.yaml, o pon la URL RTSP directamente en 'url:'.",
     error_answer: 'Error en answer:',
     error_ws: 'Canal cerrado por HA/go2rtc',
     error_timeout: 'Timeout: no se establecio la conexion RTC',
@@ -83,7 +86,7 @@ const TRANSLATIONS = {
     error_no_mic: 'Sin acceso al microfono:',
     // Editor labels
     editor_stream_label: 'Stream de go2rtc (recomendado)',
-    editor_stream_help: 'Nombre del stream tal como esta en go2rtc.yaml, p.ej. "wibox". Es la via que conserva el backchannel ONVIF.',
+    editor_stream_help: 'Nombre del stream en go2rtc.yaml (p.ej. "wibox") o una fuente que go2rtc pueda abrir (p.ej. rtsp://...). Es la via que conserva el backchannel ONVIF.',
     editor_entity_label: 'Entidad camara (alternativa a stream)',
     editor_entity_help: 'Se usa solo si dejas el stream vacio. go2rtc recibira la URL RTSP de la entidad.',
     editor_door_label: 'Entidad para abrir puerta (opcional)',
@@ -123,6 +126,8 @@ const TRANSLATIONS = {
     error_service: 'malformed service',
     error_prefix: 'Error:',
     error_ha: 'HA error:',
+    hint_stream_not_found:
+      "the go2rtc that answered has no such stream. Check the name in go2rtc.yaml, or put the RTSP URL directly in 'url:'.",
     error_answer: 'Error in answer:',
     error_ws: 'Channel closed by HA/go2rtc',
     error_timeout: 'Timeout: RTC connection was not established',
@@ -130,7 +135,7 @@ const TRANSLATIONS = {
       'Microphone blocked: HA was not loaded over HTTPS. Make sure the app connects through your https URL, not http://IP:8123.',
     error_no_mic: 'No microphone access:',
     editor_stream_label: 'go2rtc stream (recommended)',
-    editor_stream_help: 'Stream name as defined in go2rtc.yaml, e.g. "wibox". This is the path that preserves the ONVIF backchannel.',
+    editor_stream_help: 'Stream name from go2rtc.yaml (e.g. "wibox") or any source go2rtc can open (e.g. rtsp://...). This is the path that preserves the ONVIF backchannel.',
     editor_entity_label: 'Camera entity (alternative to stream)',
     editor_entity_help: 'Only used if the stream field is empty. go2rtc will receive the entity RTSP URL.',
     editor_door_label: 'Open door entity (optional)',
@@ -170,6 +175,8 @@ const TRANSLATIONS = {
     error_service: 'servei mal format',
     error_prefix: 'Error:',
     error_ha: "Error d'HA:",
+    hint_stream_not_found:
+      "el go2rtc que respon no te aquest stream. Comprova el nom a go2rtc.yaml, o posa la URL RTSP directament a 'url:'.",
     error_answer: 'Error a la resposta:',
     error_ws: 'Canal tancat per HA/go2rtc',
     error_timeout: 'Temps esgotat: no s\'ha establert la connexio RTC',
@@ -177,7 +184,7 @@ const TRANSLATIONS = {
       "Microfon bloquejat: HA no s'ha obert per HTTPS. Comprova que l'app entri per la teva URL https, no per http://IP:8123.",
     error_no_mic: 'Sense acces al microfon:',
     editor_stream_label: 'Stream de go2rtc (recomanat)',
-    editor_stream_help: 'Nom del stream tal com esta a go2rtc.yaml, p.ex. "wibox". Es la via que conserva el backchannel ONVIF.',
+    editor_stream_help: 'Nom del stream a go2rtc.yaml (p.ex. "wibox") o una font que go2rtc pugui obrir (p.ex. rtsp://...). Es la via que conserva el backchannel ONVIF.',
     editor_entity_label: 'Entitat camera (alternativa a stream)',
     editor_entity_help: "Nomes s'usa si deixes el stream buit. go2rtc rebra la URL RTSP de l'entitat.",
     editor_door_label: 'Entitat per obrir la porta (opcional)',
@@ -299,8 +306,8 @@ class WiboxIntercomVideoCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config.stream && !config.entity) {
-      throw new Error('You need to define a go2rtc "stream" name or a camera "entity"');
+    if (!config.stream && !config.url && !config.entity) {
+      throw new Error('You need to define a go2rtc "stream" name, a "url" source, or a camera "entity"');
     }
     this._config = { mute_while_talking: true, ...config };
     this._refreshLang();
@@ -609,9 +616,11 @@ class WiboxIntercomVideoCard extends HTMLElement {
       : new URL(data.path, location.origin).href;
     let wsURL = 'ws' + httpURL.substring(4); // http->ws, https->wss
 
-    if (this._config.stream) {
-      // go2rtc resolves `src` as a stream name from go2rtc.yaml.
-      wsURL += '&url=' + encodeURIComponent(this._config.stream);
+    // go2rtc resolves `src` either as a stream name from go2rtc.yaml or as a
+    // source it can open on the fly, so both options take the same parameter.
+    const src = this._config.stream || this._config.url;
+    if (src) {
+      wsURL += '&url=' + encodeURIComponent(src);
     } else {
       wsURL += '&entity=' + encodeURIComponent(this._config.entity);
     }
@@ -689,7 +698,9 @@ class WiboxIntercomVideoCard extends HTMLElement {
         await this._addRemoteCandidate(msg.value);
       }
     } else if (msg.type === 'error') {
-      this._status(`${T('error_ha')} ${msg.value || msg.message}`, true);
+      const detail = String(msg.value || msg.message || '');
+      const hint = detail.includes('stream not found') ? ` — ${T('hint_stream_not_found')}` : '';
+      this._status(`${T('error_ha')} ${detail}${hint}`, true);
     }
   }
 

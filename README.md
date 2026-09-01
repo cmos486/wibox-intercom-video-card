@@ -134,7 +134,8 @@ Forward **8555 UDP and TCP** on your router to the Home Assistant host. This is 
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `stream` | string | — | go2rtc stream name from `go2rtc.yaml`. **Recommended** — this is the path that keeps the ONVIF backchannel. |
-| `entity` | string | — | Camera entity, used only if `stream` is empty. go2rtc receives the entity's RTSP URL. |
+| `url` | string | — | Any source go2rtc can open, e.g. `rtsp://user:pass@host:8554/live`. go2rtc creates the stream on the fly, backchannel included. Use this if `stream` reports `stream not found`. |
+| `entity` | string | — | Camera entity. go2rtc receives the entity's RTSP URL. |
 | `server` | string | — | Override the go2rtc URL used by the proxy. Rarely needed. |
 | `open_door_entity` | string | — | Shows the "Open door" button. The service is derived from the domain: `button`/`input_button` → `press`, `lock` → `unlock`, `switch`/`script`/`scene` → `turn_on`. |
 | `open_door_action` | object | — | Full control instead of `open_door_entity`: `service`, `entity_id`, `data`. |
@@ -143,7 +144,7 @@ Forward **8555 UDP and TCP** on your router to the Home Assistant host. This is 
 | `video_max_height` | string | — | Caps the video height, e.g. `300px`. Useful on small screens. |
 | `language` | string | auto | `es`, `en` or `ca`. Defaults to the Home Assistant language. |
 
-Either `stream` or `entity` is required.
+One of `stream`, `url` or `entity` is required. `stream` and `url` are the same go2rtc parameter — go2rtc resolves it as a stream name if it matches one, and otherwise tries to open it as a source.
 
 ### 📝 Examples
 
@@ -210,6 +211,19 @@ The card detects this and shows it in red instead of failing silently, then cont
 **Fix:** in the companion app settings, make the internal URL your HTTPS proxy URL (or clear it so the external one is always used). To confirm the diagnosis quickly, turn WiFi off and try on mobile data — that already goes through 443. If it works on mobile data and not on WiFi, this is it.
 
 Also check that the companion app itself holds the microphone permission — if [Assist](https://www.home-assistant.io/voice_control/) can use the mic, it does.
+
+### 🔍 "webrtc/offer: stream not found"
+
+Signalling is working — this is go2rtc replying that the name you asked for is not one of its streams. Either the name does not match `go2rtc.yaml`, or the go2rtc instance answering is not the one holding that config (an add-on and an integration-managed binary are two different processes with two different configs).
+
+Quickest way through it, which also tells you which of the two it is:
+
+```yaml
+type: custom:wibox-intercom-video-card
+url: rtsp://video:<password>@<wibox-ip>:8554/live
+```
+
+If that works, the stream name was the problem, not the plumbing. go2rtc opens the RTSP source on the fly and the ONVIF backchannel comes with it, so talkback works either way.
 
 ### 🔇 Video works but nothing reaches the WiBox
 
