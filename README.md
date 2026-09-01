@@ -214,16 +214,19 @@ Also check that the companion app itself holds the microphone permission — if 
 
 ### 🔍 "webrtc/offer: stream not found"
 
-Signalling is working — this is go2rtc replying that the name you asked for is not one of its streams. Either the name does not match `go2rtc.yaml`, or the go2rtc instance answering is not the one holding that config (an add-on and an integration-managed binary are two different processes with two different configs).
+Signalling is working — this is go2rtc replying that the name you asked for is not one of its streams. Either the name does not match `go2rtc.yaml`, or the go2rtc instance answering is not the one holding that config. That second case is easy to hit: the go2rtc add-on and a go2rtc that the AlexxIT integration downloaded and started itself are two different processes with two different configs, and `api: listen: 127.0.0.1:1984` only accepts connections from inside its own container.
 
-Quickest way through it, which also tells you which of the two it is:
+You do not have to work out which. Drop the stream name and point the card at the camera entity instead:
 
 ```yaml
 type: custom:wibox-intercom-video-card
-url: rtsp://video:<password>@<wibox-ip>:8554/live
+entity: camera.wifi_intercom_camara_entrada
 ```
 
-If that works, the stream name was the problem, not the plumbing. go2rtc opens the RTSP source on the fly and the ONVIF backchannel comes with it, so talkback works either way.
+The integration resolves the RTSP URL from the entity and hands that to go2rtc as the source, so no named stream is involved. The ONVIF backchannel comes with it, because go2rtc negotiates it from the RTSP producer — talkback works exactly the same. `url: rtsp://user:pass@host:8554/live` does the same thing if you would rather name the source yourself.
+
+> [!WARNING]
+> `stream`, `url` and `entity` are the same go2rtc parameter, and a named source wins over `entity`. Setting both leaves `entity` silently ignored, which looks like the entity being broken. The card logs a warning to the browser console when it spots this.
 
 ### 🔇 Video works but nothing reaches the WiBox
 
