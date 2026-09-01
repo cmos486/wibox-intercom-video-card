@@ -309,6 +309,15 @@ class WiboxIntercomVideoCard extends HTMLElement {
     if (!config.stream && !config.url && !config.entity) {
       throw new Error('You need to define a go2rtc "stream" name, a "url" source, or a camera "entity"');
     }
+    if ((config.stream || config.url) && config.entity) {
+      // Both are valid on their own, but they are the same wire parameter and
+      // the named source wins - which looks like `entity` being ignored.
+      console.warn(
+        LOG_PREFIX,
+        `both "${config.stream ? 'stream' : 'url'}" and "entity" are set; ` +
+        `using "${config.stream || config.url}" and ignoring ${config.entity}`
+      );
+    }
     this._config = { mute_while_talking: true, ...config };
     this._refreshLang();
     this._render();
