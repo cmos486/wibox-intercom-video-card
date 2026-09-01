@@ -1,0 +1,6 @@
+{
+  "name": "WiBox Intercom Video Card",
+  "filename": "wibox-intercom-video-card.js",
+  "render_readme": true,
+  "homeassistant": "2024.4.0"
+}
