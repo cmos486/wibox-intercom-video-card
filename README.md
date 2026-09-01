@@ -275,6 +275,21 @@ node tests/run.js
 
 No dependencies. Beyond the config helpers, the suite statically asserts the three properties the card would otherwise fail silently on: that `getUserMedia` is reachable with no `await` in front of it, that the offer keeps its sendonly/recvonly/recvonly shape, and that nothing ever addresses the go2rtc API directly.
 
+## 🗺 Not implemented yet
+
+### Auto-preview on card load
+
+Today the card sits black until you press Pick up. For a doorbell the real sequence is ring → notification → open the dashboard → **want to see who it is now**, so that extra tap lands at the worst moment.
+
+The shape would be: open a receive-only connection when the card loads, then swap to the microphone-carrying one on Pick up. It has to be two connections, because go2rtc does not renegotiate over its WebSocket — the mic track must be in the initial offer, so adding it later means rebuilding the session. That costs about a second of frozen video at the swap.
+
+Two things to weigh before building it:
+
+- **The preview cannot carry audio.** Browsers only allow muted autoplay; unmuted playback needs a user gesture. So the preview would show the visitor, not let you hear them — the audio would still start on Pick up. That is a narrower win than it first sounds.
+- **The stream runs for as long as the dashboard is open**, which on a phone means mobile data and battery, and on the WiBox means a permanently open RTSP session. Worth bounding with an `IntersectionObserver` so the preview only runs while the card is actually on screen, plus an `auto_preview` option to switch it off.
+
+A cheaper alternative that covers most of "who rang?": a still poster from `/api/camera_proxy` while idle instead of a black rectangle. No stream, no battery cost, and you pick up if the picture warrants it.
+
 ## 🙏 Credits
 
 - [cmos486/wibox-media](https://github.com/cmos486/wibox-media) — the WiBox firmware fork this card talks to, forked from [segator/wibox-media](https://github.com/segator/wibox-media).
